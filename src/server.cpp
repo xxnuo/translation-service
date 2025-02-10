@@ -10,14 +10,24 @@
 #include "translation.h"
 #include "crow.h"
 #include "consts.h"
+#include "env.h"
+
+// 添加环境变量名称常量
+const char* ENV_MODELS_PATH = "MTS_MODELS_PATH";
+const char* ENV_API_TOKEN = "MTS_API_TOKEN";
+const char* ENV_VERSION = "MTS_VERSION";
+const char* ENV_PORT = "MTS_PORT";
+const char* ENV_LOG_LEVEL = "MTS_LOG_LEVEL";
+const char* ENV_NUM_WORKERS = "MTS_NUM_WORKERS";
+
 std::string getModelsPath() {
     // 首先检查环境变量
-    char* envPath = getenv("MTS_MODELS_PATH");
-    if (envPath != nullptr) {
+    std::string envPath = getEnvVar(ENV_MODELS_PATH, "");
+    if (!envPath.empty()) {
         if (std::filesystem::exists(envPath)) {
-            return std::string(envPath);
+            return envPath;
         }
-        CROW_LOG_WARNING << "Models path from MTS_MODELS_PATH (" << envPath << ") does not exist";
+        CROW_LOG_WARNING << "Models path from " << ENV_MODELS_PATH << " (" << envPath << ") does not exist";
     }
 
     // 检查当前目录下的 models
@@ -46,6 +56,17 @@ std::string escape_json(const std::string &s) {
     return o.str();
 }
 
+// 添加验证token的函数
+bool verifyApiToken(const crow::request& req) {
+    static const std::string expectedToken = getEnvVar(ENV_API_TOKEN, "");
+    if (expectedToken.empty()) {
+        return true;  // 如果未设置token，则不进行验证
+    }
+
+    std::string_view authHeader = req.get_header_value("Authorization");
+    return !authHeader.empty() && authHeader == expectedToken;
+}
+
 void run(int port, int workers, crow::LogLevel logLevel) {
     marian::bergamot::TranslatorWrapper wrapper(workers);
     std::string modelsPath = getModelsPath();
@@ -57,6 +78,10 @@ void run(int port, int workers, crow::LogLevel logLevel) {
     CROW_ROUTE(app, "/v1/translate")
             .methods("POST"_method)
                     ([&wrapper](const crow::request &req) {
+                        if (!verifyApiToken(req)) {
+                            return crow::response(403);
+                        }
+
                         auto x = crow::json::load(req.body);
                         if (!x) {
                             CROW_LOG_WARNING << "Bad json: " << x;
@@ -93,7 +118,8 @@ void run(int port, int workers, crow::LogLevel logLevel) {
 
     CROW_ROUTE(app, "/version")
             ([] {
-                return "{\"version\": \"" MTS_VERSION "\"}";
+                static const std::string version = getEnvVar(ENV_VERSION, __MTS_VERSION__);
+                return "{\"version\": \"" + version + "\"}";
             });
 
     CROW_ROUTE(app, "/__heartbeat__")
@@ -113,15 +139,11 @@ void run(int port, int workers, crow::LogLevel logLevel) {
     .run();
 }
 
-std::string getEnvVar(const std::string &key, const std::string &defaultVal) {
-    char *val = getenv(key.c_str());
-    return val == NULL ? std::string(defaultVal) : std::string(val);
-}
-
 int main(int argc, char *argv[]) {
-    auto port = std::stoi(getEnvVar("MTS_PORT", "8989"));
+    loadEnvFile();
+    auto port = std::stoi(getEnvVar(ENV_PORT, "8989"));
 
-    auto logLevelVar = getEnvVar("MTS_LOG_LEVEL", "INFO");
+    auto logLevelVar = getEnvVar(ENV_LOG_LEVEL, "INFO");
     auto logLevel = crow::LogLevel::Info;
     if (logLevelVar == "WARNING")
         logLevel = crow::LogLevel::Warning;
@@ -135,15 +157,15 @@ int main(int argc, char *argv[]) {
         throw std::invalid_argument("Unknown logging level: " + logLevelVar);
     }
 
-    auto workers = std::stoi(getEnvVar("MTS_NUM_WORKERS", "1"));
+    auto workers = std::stoi(getEnvVar(ENV_NUM_WORKERS, "1"));
     if (workers == 0)
         workers = std::thread::hardware_concurrency();
 
     // 在启动时输出所有配置信息
-    std::cout << "Starting Translation Service with configuration:" << std::endl
-              << "- Port: " << port << std::endl
-              << "- Log Level: " << logLevelVar << std::endl
-              << "- Workers: " << workers << std::endl;
+    // std::cout << "Starting Translation Service with configuration:" << std::endl
+    //           << "- Port: " << port << std::endl
+    //           << "- Log Level: " << logLevelVar << std::endl
+    //           << "- Workers: " << workers << std::endl;
 
     run(port, workers, logLevel);
 
