@@ -57,10 +57,15 @@ local-build-inter-build:
 	bash scripts/compile.sh
 
 local-build-inter-run:
-	/app/build/src/server
+	/app/build/src/mts-server
 
 local-build-inter-curl:
 	curl --header "Content-Type: application/json" \
 		--request POST \
 		--data '{"from":"zh", "to":"en", "text": "我可以为你做什么"}' \
 		http://0.0.0.0:8989/v1/translate
+
+local-build-inter-dist:
+	mkdir -p dist
+	cp build/src/mts-server dist/mts-server
+	strip --strip-all dist/mts-server
