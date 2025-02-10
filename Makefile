@@ -51,7 +51,16 @@ local-build-docker:
 local-build-run:
 	docker run --name local-build-translation-service -it --rm -v $$(pwd):/app -p 8989:8989 local-build-translation-service
 
-local-build-interbuild:
+local-build-inter-build:
 	mkdir -p .ccache
 	export CCACHE_DIR=/app/.ccache
 	bash scripts/compile.sh
+
+local-build-inter-run:
+	/app/build/src/server
+
+local-build-inter-curl:
+	curl --header "Content-Type: application/json" \
+		--request POST \
+		--data '{"from":"zh", "to":"en", "text": "我可以为你做什么"}' \
+		http://0.0.0.0:8989/v1/translate
