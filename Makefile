@@ -49,7 +49,7 @@ local-build-docker:
 	docker build -t local-build-translation-service -f build.Dockerfile .
 
 local-build-run:
-	docker run --name local-build-translation-service -it --rm -v $$(pwd):/app -p 8989:8989 local-build-translation-service
+	docker run --name local-build-translation-service -it --rm -v $$(pwd):/app -p 8989:8989 local-build-translation-service bash
 
 local-build-inter-build:
 	mkdir -p .ccache
