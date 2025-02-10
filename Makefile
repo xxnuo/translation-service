@@ -57,7 +57,7 @@ local-build-inter-build:
 	bash scripts/compile.sh
 
 local-build-inter-run:
-	/app/build/src/mts-server
+	/app/build/src/mts
 
 local-build-inter-curl:
 	curl --header "Content-Type: application/json" \
@@ -67,5 +67,5 @@ local-build-inter-curl:
 
 local-build-inter-dist:
 	mkdir -p dist
-	cp build/src/mts-server dist/mts-server
-	strip --strip-all dist/mts-server
+	cp build/src/mts dist/mts
+	strip --strip-all dist/mts
