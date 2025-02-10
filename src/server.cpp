@@ -9,7 +9,7 @@
 
 #include "translation.h"
 #include "crow.h"
-
+#include "consts.h"
 std::string getModelsPath() {
     // 首先检查环境变量
     char* envPath = getenv("MTS_MODELS_PATH");
@@ -81,6 +81,20 @@ void run(int port, int workers, crow::LogLevel logLevel) {
                         response.set_header("Content-Type", "application/json; charset=utf-8");
                         return response;
                     });
+
+    CROW_ROUTE(app, "/v1/languages")
+            .methods("GET"_method)
+                    ([&wrapper]() {
+                        auto pairs = wrapper.getLanguagePairs();
+                        crow::json::wvalue response;
+                        response["languages"] = pairs;
+                        return response;
+                    });
+
+    CROW_ROUTE(app, "/version")
+            ([] {
+                return "{\"version\": \"" MTS_VERSION "\"}";
+            });
 
     CROW_ROUTE(app, "/__heartbeat__")
             ([] {
