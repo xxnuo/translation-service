@@ -22,7 +22,7 @@ const char* ENV_NUM_WORKERS = "MTS_NUM_WORKERS";
 
 std::string getModelsPath() {
     // 首先检查环境变量
-    std::string envPath = getEnvVar(ENV_MODELS_PATH, "");
+    static const std::string envPath = getEnvVar(ENV_MODELS_PATH, "");
     if (!envPath.empty()) {
         if (std::filesystem::exists(envPath)) {
             return envPath;
@@ -58,7 +58,7 @@ std::string escape_json(const std::string &s) {
 
 // 添加验证token的函数
 bool verifyApiToken(const crow::request& req) {
-    static const std::string expectedToken = getEnvVar(ENV_API_TOKEN, "");
+    static const std::string_view expectedToken = getEnvVar(ENV_API_TOKEN, "");
     if (expectedToken.empty()) {
         return true;  // 如果未设置token，则不进行验证
     }
@@ -70,11 +70,13 @@ bool verifyApiToken(const crow::request& req) {
 void run(int port, int workers, crow::LogLevel logLevel) {
     marian::bergamot::TranslatorWrapper wrapper(workers);
     std::string modelsPath = getModelsPath();
-    CROW_LOG_INFO << "Loading models from: " << modelsPath;
+
+    CROW_LOG_DEBUG << "Models path: " << modelsPath;
     wrapper.loadModels(modelsPath);
-
+    CROW_LOG_INFO << "Models loaded.";
+    
     crow::SimpleApp app;
-
+    
     CROW_ROUTE(app, "/v1/translate")
             .methods("POST"_method)
                     ([&wrapper](const crow::request &req) {
@@ -107,19 +109,28 @@ void run(int port, int workers, crow::LogLevel logLevel) {
                         return response;
                     });
 
-    CROW_ROUTE(app, "/v1/languages")
+    CROW_ROUTE(app, "/v1/models")
             .methods("GET"_method)
-                    ([&wrapper]() {
-                        auto pairs = wrapper.getLanguagePairs();
+                    ([&wrapper](const crow::request &req) {
+                        if (!verifyApiToken(req)) {
+                            return crow::response(403);
+                        }
+
+                        auto pairs = wrapper.getModels();
                         crow::json::wvalue response;
-                        response["languages"] = pairs;
-                        return response;
+                        response["models"] = pairs;
+                        return crow::response(response);
                     });
 
     CROW_ROUTE(app, "/version")
             ([] {
                 static const std::string version = getEnvVar(ENV_VERSION, __MTS_VERSION__);
                 return "{\"version\": \"" + version + "\"}";
+            });
+
+    CROW_ROUTE(app, "/health")
+            ([] {
+                return "{\"status\": \"ok\"}";
             });
 
     CROW_ROUTE(app, "/__heartbeat__")
@@ -141,9 +152,9 @@ void run(int port, int workers, crow::LogLevel logLevel) {
 
 int main(int argc, char *argv[]) {
     loadEnvFile();
-    auto port = std::stoi(getEnvVar(ENV_PORT, "8989"));
+    static const auto port = std::stoi(getEnvVar(ENV_PORT, "8989"));
 
-    auto logLevelVar = getEnvVar(ENV_LOG_LEVEL, "INFO");
+    static const auto logLevelVar = getEnvVar(ENV_LOG_LEVEL, "INFO");
     auto logLevel = crow::LogLevel::Info;
     if (logLevelVar == "WARNING")
         logLevel = crow::LogLevel::Warning;
