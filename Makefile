@@ -44,3 +44,14 @@ setup-models:
 	mv firefox-translations-models/models/prod/* models/
 	gunzip -r models/
 	rm -rf firefox-translations-models
+
+local-build-docker:
+	docker build -t local-build-translation-service -f build.Dockerfile .
+
+local-build-run:
+	docker run --name local-build-translation-service -it --rm -v $$(pwd):/app -p 8989:8989 local-build-translation-service
+
+local-build-interbuild:
+	mkdir -p .ccache
+	export CCACHE_DIR=/app/.ccache
+	bash scripts/compile.sh
