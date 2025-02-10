@@ -106,7 +106,7 @@ namespace marian {
                 return result;
             }
 
-            std::vector<std::string> getLanguagePairs() {
+            std::vector<std::string> getModels() {
                 std::vector<std::string> pairs;
                 for (const auto& pair : _models) {
                     pairs.push_back(pair.first);
