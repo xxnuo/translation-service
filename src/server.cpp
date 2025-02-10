@@ -1,4 +1,3 @@
-
 #include <algorithm>
 #include <cstdlib>
 #include <future>
@@ -10,6 +9,29 @@
 
 #include "translation.h"
 #include "crow.h"
+
+std::string getModelsPath() {
+    // 首先检查环境变量
+    char* envPath = getenv("MTS_MODELS_PATH");
+    if (envPath != nullptr) {
+        if (std::filesystem::exists(envPath)) {
+            return std::string(envPath);
+        }
+        CROW_LOG_WARNING << "Models path from MTS_MODELS_PATH (" << envPath << ") does not exist";
+    }
+
+    // 检查当前目录下的 models
+    std::string currentDirModels = "models";
+    if (std::filesystem::exists(currentDirModels)) {
+        return std::filesystem::absolute(currentDirModels).string();
+    }
+
+    // 最后返回 /models
+    if (!std::filesystem::exists("/models")) {
+        CROW_LOG_WARNING << "Default models path /models does not exist";
+    }
+    return "/models";
+}
 
 std::string escape_json(const std::string &s) {
     std::ostringstream o;
@@ -26,7 +48,9 @@ std::string escape_json(const std::string &s) {
 
 void run(int port, int workers, crow::LogLevel logLevel) {
     marian::bergamot::TranslatorWrapper wrapper(workers);
-    wrapper.loadModels("/models");
+    std::string modelsPath = getModelsPath();
+    CROW_LOG_INFO << "Loading models from: " << modelsPath;
+    wrapper.loadModels(modelsPath);
 
     crow::SimpleApp app;
 
@@ -81,9 +105,9 @@ std::string getEnvVar(const std::string &key, const std::string &defaultVal) {
 }
 
 int main(int argc, char *argv[]) {
-    auto port = std::stoi(getEnvVar("PORT", "8000"));
+    auto port = std::stoi(getEnvVar("MTS_PORT", "8989"));
 
-    auto logLevelVar = getEnvVar("LOG_LEVEL", "INFO");
+    auto logLevelVar = getEnvVar("MTS_LOG_LEVEL", "INFO");
     auto logLevel = crow::LogLevel::Info;
     if (logLevelVar == "WARNING")
         logLevel = crow::LogLevel::Warning;
@@ -94,12 +118,18 @@ int main(int argc, char *argv[]) {
     else if (logLevelVar == "DEBUG")
         logLevel = crow::LogLevel::Debug;
     else {
-        throw std::invalid_argument("Unknown logging level");
+        throw std::invalid_argument("Unknown logging level: " + logLevelVar);
     }
 
-    auto workers = std::stoi(getEnvVar("NUM_WORKERS", "1"));
+    auto workers = std::stoi(getEnvVar("MTS_NUM_WORKERS", "1"));
     if (workers == 0)
         workers = std::thread::hardware_concurrency();
+
+    // 在启动时输出所有配置信息
+    std::cout << "Starting Translation Service with configuration:" << std::endl
+              << "- Port: " << port << std::endl
+              << "- Log Level: " << logLevelVar << std::endl
+              << "- Workers: " << workers << std::endl;
 
     run(port, workers, logLevel);
 
