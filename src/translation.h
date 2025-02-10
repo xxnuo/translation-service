@@ -1,4 +1,3 @@
-
 #ifndef TRANSLATION_SERVICE_TRANSLATION_H
 #define TRANSLATION_SERVICE_TRANSLATION_H
 
@@ -39,6 +38,10 @@ namespace marian {
 
             void loadModels(const std::string modelsDir) {
                 for (const auto &entry: std::filesystem::directory_iterator(modelsDir)) {
+                    if (startsWith(entry.path().filename().string(), ".")) {
+                        continue;
+                    }
+                    
                     auto basePath = entry.path();
                     auto pair = entry.path().filename().string();
                     std::string srcVocabPath = "";
@@ -46,7 +49,7 @@ namespace marian {
                     std::string modelPath = "";
                     std::string shortlistPath = "";
 
-                    std::cout << "Looking for models in " << basePath << std::endl;
+                    // std::cout << "Looking for models in " << basePath << std::endl;
 
                     for (const auto &entry2: std::filesystem::directory_iterator(basePath)) {
                         auto fileNameStr = entry2.path().filename().string();
@@ -70,10 +73,10 @@ namespace marian {
                     auto config = buildConfig(modelPath, srcVocabPath, trgVocabPath, shortlistPath);
                     auto options = parseOptionsFromString(config);
                     MemoryBundle memoryBundle;
-                    std::cout << "Creating translation model for " << pair << std::endl;
+                    // std::cout << "Creating translation model for " << pair << std::endl;
                     auto translationModel = New<TranslationModel>(options, std::move(memoryBundle), _numWorkers);
                     _models[pair] = translationModel;
-                    std::cout << "Model " << pair << " is loaded" << std::endl;
+                    // std::cout << "Model " << pair << " is loaded" << std::endl;
                 }
 
                 if (_models.empty())
@@ -101,6 +104,14 @@ namespace marian {
                 }
 
                 return result;
+            }
+
+            std::vector<std::string> getLanguagePairs() {
+                std::vector<std::string> pairs;
+                for (const auto& pair : _models) {
+                    pairs.push_back(pair.first);
+                }
+                return pairs;
             }
 
         private:
