@@ -70,9 +70,7 @@ bool verifyApiToken(const crow::request& req) {
 void run(int port, int workers, crow::LogLevel logLevel) {
     CROW_LOG_INFO << "Starting Translation Service";
     CROW_LOG_INFO << "Service port: " << port;
-    CROW_LOG_INFO << "Service workers: " << workers;
-    CROW_LOG_INFO << "Service log level: " << logLevel;
-    
+
     marian::bergamot::TranslatorWrapper wrapper(workers);
     std::string modelsPath = getModelsPath();
 
